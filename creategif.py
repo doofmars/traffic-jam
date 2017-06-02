@@ -1,4 +1,4 @@
-import sys, os, argparse, datetime, iso8601, math, imageio
+import sys, os, argparse, datetime, iso8601, math, imageio, progressbar, time
 from dateutil.tz import tzlocal
 from PIL import Image, ImageFont, ImageDraw 
 
@@ -10,12 +10,19 @@ FONTS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resougrce
 FONT = ImageFont.truetype(os.path.join(FONTS_PATH, 'SourceSansPro-Regular.ttf'), 24)
 
 def processImages(args):
-	for filename in os.listdir(args.input):
-		if filename.endswith(".png"): 
-			processImage(args.input, filename)
-	
+	#Get number of files in folder
+	num_files = len([f for f in os.listdir(args.input)
+					if os.path.isfile(os.path.join(args.input, f)) and f.endswith(args.ext)])
+	#Start processing
+	count = 0;
+	with progressbar.ProgressBar(max_value=num_files, redirect_stdout=True) as bar:
+		for filename in os.listdir(args.input):
+			if filename.endswith(args.ext): 
+				processImage(args.input, filename)
+				count += 1
+				bar.update(count)
+		
 def processImage(imagePath, imageName):
-	print(imageName)
 	
 	#Load image from file
 	inputFrame = Image.open(os.path.join(imagePath, imageName))
@@ -39,12 +46,20 @@ def processImage(imagePath, imageName):
 	
 	return canvas	
 	
-def createGif(inputPath, outputFile, fps):
+def createGif(inputPath, outputFile, fps, ext):
 	#Make gif animation
-	with imageio.get_writer(outputFile, mode='I', fps=fps) as writer:
-		for filename in os.listdir(inputPath):
-			image = imageio.imread(os.path.join(inputPath, filename))
-			writer.append_data(image)
+	
+	num_files = len([f for f in os.listdir(inputPath)
+					if os.path.isfile(os.path.join(inputPath, f)) and f.endswith(ext)])
+	count = 0;
+	with progressbar.ProgressBar(max_value=num_files, redirect_stdout=True) as bar:
+		with imageio.get_writer(outputFile, mode='I', fps=fps) as writer:
+			for filename in os.listdir(inputPath):
+				image = imageio.imread(os.path.join(inputPath, filename))
+				writer.append_data(image)
+				count += 1
+				bar.update(count)
+				
 	writer.close()
 	print("Gif sucessfuly written to", outputFile)
 	
@@ -53,8 +68,9 @@ def main():
 	parser = argparse.ArgumentParser(description='Process some integers.')
 	parser.add_argument('-i', '--input', dest='input', required= True, help='Path of images to process (all *.png-files)')
 	parser.add_argument('-o', '--output', dest='output', required= True, help='Path of processed result gif')
-	parser.add_argument('-f', '--fileName', dest='outputFileName', default='result.gif', help='Name of the result gif')
-	parser.add_argument('-fps', '--frames-per-second', dest='fps', default=20, type=int, help='Write images in /tmp folder')
+	parser.add_argument('-f', '--file-name', dest='outputFileName', default='result.gif', help='Name of the result gif')
+	parser.add_argument('-fps', '--frames-per-second', dest='fps', default=20, type=int, help='Frames per second in gif')
+	parser.add_argument('-ex', '--file-extension', dest='ext', default=".png", help='Input file extension')
 	args = parser.parse_args()
 	
 	print("Processing images in", args.input)
@@ -69,8 +85,8 @@ def main():
 		os.makedirs(os.path.join(args.input, TMPFOLDER))
 	
 	processImages(args)
-	print(Done processing image, creating gif)
-	createGif(os.path.join(args.input, TMPFOLDER), os.path.join(args.output, args.outputFileName), args.fps)
+	print("Done processing image, creating gif")
+	createGif(os.path.join(args.input, TMPFOLDER), os.path.join(args.output, args.outputFileName), args.fps, args.ext)
 	
 if __name__ == "__main__":
 	main()
